@@ -38,7 +38,6 @@ REMOTE_DIR=/ruta/remota/      # Directorio remoto a sincronizar
 
 # Configuración avanzada SFTP  
 SFTP_PORT=22                  # Puerto SFTP (predeterminado: 22)  
-COMPRESSION_LEVEL=9           # Nivel de compresión para archivos de texto (1-9)  
 REMOTE_METADATA_PATH=/tmp/filelist.txt.gz    # ruta de metadata en el servidor
 ```
 
@@ -123,7 +122,6 @@ python3 sync.py --phase 4
 ---
 
 ### **Ventajas del Sistema**  
-- **Optimización de Red**: Compresión automática de archivos de texto (`.txt`, `.csv`, `.json`, etc.).  
 - **Modularidad**: Fases independientes para pruebas o integración en pipelines.  
 - **Transparencia**: Logs detallados en consola y validación visual de cambios.  
 - **Seguridad**: Conexión SFTP encriptada y gestión de credenciales mediante `.env`.  

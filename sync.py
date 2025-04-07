@@ -124,23 +124,27 @@ def comparar_archivos():
     """Fase 3: Comparar archivos locales/remotos"""
     print("\n[FASE 3] Comparando archivos...")
     server_files = {}
+    remote_dir = os.getenv('REMOTE_DIR').rstrip('/')  # Normalizar REMOTE_DIR
     
     with open('filelist.txt') as f:
         for line in f:
             parts = line.strip().split(' ', 3)
             if len(parts) == 4:
                 size, date_str, time_str, path = parts
-                server_files[path] = {
+                # Obtener ruta relativa respecto a REMOTE_DIR
+                relative_path = path[len(remote_dir):].lstrip('/')
+                server_files[relative_path] = {
                     'size': int(size),
                     'modified': datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
                 }
     
     cambios = []
     local_dir = os.getenv('LOCAL_DIR')
-    for path, meta in server_files.items():
-        local_path = os.path.join(local_dir, path.lstrip('/'))
+    
+    for relative_path, meta in server_files.items():
+        local_path = os.path.join(local_dir, relative_path)
         cambio = {
-            'path': path,
+            'path': relative_path,  # Guardar ruta relativa
             'remote_modified': meta['modified'],
         }
         
@@ -149,23 +153,29 @@ def comparar_archivos():
         else:
             stat = os.stat(local_path)
             local_modified = datetime.fromtimestamp(stat.st_mtime)
-            if (stat.st_size != meta['size'] or local_modified < meta['modified']):
+            
+            if (stat.st_size != meta['size'] or 
+                local_modified < meta['modified']):
                 cambio['local_modified'] = local_modified
                 cambios.append(cambio)
     
     return cambios
 
+
 def descargar_archivos(cambios):
     """Fase 4: Descarga archivos nuevos o modificados"""
     print("\n[FASE 4] Descargando cambios...")
+    remote_dir = os.getenv('REMOTE_DIR').rstrip('/')  # Normalizar REMOTE_DIR
+    
     with SecureSFTP() as sftp:
         for cambio in cambios:
-            remote_path = cambio['path']
-            local_path = os.path.join(os.getenv('LOCAL_DIR'),  cambio['path'].lstrip('/'))
+            relative_path = cambio['path']
+            remote_path = f"{remote_dir}/{relative_path}"  # Ruta absoluta remota
+            local_path = os.path.join(os.getenv('LOCAL_DIR'), relative_path)
             
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             
-            print(f"Descargando {remote_path}...")
+            print(f"Descargando {relative_path}...")
             try:
                 sftp.descargar_archivo(remote_path, local_path)
                 
@@ -173,9 +183,10 @@ def descargar_archivos(cambios):
                 mod_time = cambio['remote_modified'].timestamp()
                 os.utime(local_path, (mod_time, mod_time))
                 
-                print(f"✓ {remote_path} [Fecha: {cambio['remote_modified'].strftime('%Y-%m-%d %H:%M:%S')}]")
+                print(f"✓ {relative_path} [Fecha: {cambio['remote_modified'].strftime('%Y-%m-%d %H:%M:%S')}]")
             except Exception as e:
                 print(f"✗ Error: {str(e)}")
+
 
 
 def main():
