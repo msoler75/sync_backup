@@ -35,7 +35,7 @@ class SecureSFTP:
             self.ssh.close()
 
     def descargar_archivo_gzipped(self, remote_path, local_path):
-        """Descarga y descomprime archivos compimidos .gz"""
+        """Descarga y descomprime archivos comprimidos .gz"""
         if self._es_archivo_texto(remote_path):
             temp_path = f"{local_path}.gz"
             self.sftp.get(remote_path, temp_path)
@@ -111,6 +111,15 @@ def descargar_metadata():
       #  sftp.eliminar_archivo_remoto(metadata_path) 
     # print(f"✓ Metadata eliminada del servidor")
 
+def imprimir_cambios(cambios):      
+    print(f"\nArchivos modificados ({len(cambios)}):")
+    for cambio in cambios:
+        if 'local_modified' in cambio:
+            print(f"✓ {cambio['path']} [Remote: {cambio['remote_modified']} | Local: {cambio['local_modified']}]")
+        else:
+            print(f"✓ {cambio['path']} (nuevo)")
+
+
 def comparar_archivos():
     """Fase 3: Comparar archivos locales/remotos"""
     print("\n[FASE 3] Comparando archivos...")
@@ -129,36 +138,42 @@ def comparar_archivos():
     cambios = []
     local_dir = os.getenv('LOCAL_DIR')
     for path, meta in server_files.items():
-        local_path = os.path.join(local_dir, path)
+        local_path = os.path.join(local_dir, path.lstrip('/'))
+        cambio = {
+            'path': path,
+            'remote_modified': meta['modified'],
+        }
         
         if not os.path.exists(local_path):
-            cambios.append(path)
+            cambios.append(cambio)
         else:
             stat = os.stat(local_path)
-            if (stat.st_size != meta['size'] or 
-                datetime.fromtimestamp(stat.st_mtime) < meta['modified']):
-                cambios.append(path)
-    
-    print(f"\nArchivos modificados ({len(cambios)}):")
-    for archivo in cambios:
-        print(f" - {archivo}")
+            local_modified = datetime.fromtimestamp(stat.st_mtime)
+            if (stat.st_size != meta['size'] or local_modified < meta['modified']):
+                cambio['local_modified'] = local_modified
+                cambios.append(cambio)
     
     return cambios
 
-def descargar_archivos(archivos):
-    """Fase 4: Descarga simple sin compresión"""
+def descargar_archivos(cambios):
+    """Fase 4: Descarga archivos nuevos o modificados"""
     print("\n[FASE 4] Descargando cambios...")
     with SecureSFTP() as sftp:
-        for archivo in archivos:
-            remote_path = archivo  # Ruta absoluta del servidor
-            local_path = os.path.join(os.getenv('LOCAL_DIR'), archivo.lstrip('/'))
+        for cambio in cambios:
+            remote_path = cambio['path']
+            local_path = os.path.join(os.getenv('LOCAL_DIR'),  cambio['path'].lstrip('/'))
             
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             
             print(f"Descargando {remote_path}...")
             try:
                 sftp.descargar_archivo(remote_path, local_path)
-                print(f"✓ {archivo} descargado")
+                
+                # Aplicar fecha/hora desde metadata
+                mod_time = cambio['remote_modified'].timestamp()
+                os.utime(local_path, (mod_time, mod_time))
+                
+                print(f"✓ {remote_path} [Fecha: {cambio['remote_modified'].strftime('%Y-%m-%d %H:%M:%S')}]")
             except Exception as e:
                 print(f"✗ Error: {str(e)}")
 
@@ -173,9 +188,11 @@ def main():
     elif args.phase == 2:
         descargar_metadata()
     elif args.phase == 3:
-        comparar_archivos()
+        cambios = comparar_archivos()
+        imprimir_cambios(cambios)
     elif args.phase == 4:
         cambios = comparar_archivos()
+        imprimir_cambios(cambios)
         if cambios:
             descargar_archivos(cambios)
     else:
