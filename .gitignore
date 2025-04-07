@@ -1,1 +1,4 @@
 .env
+filelist.txt
+/storage
+.gitignore
