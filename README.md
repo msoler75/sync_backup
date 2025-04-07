@@ -39,6 +39,7 @@ REMOTE_DIR=/ruta/remota/      # Directorio remoto a sincronizar
 # Configuración avanzada SFTP  
 SFTP_PORT=22                  # Puerto SFTP (predeterminado: 22)  
 COMPRESSION_LEVEL=9           # Nivel de compresión para archivos de texto (1-9)  
+REMOTE_METADATA_PATH=/tmp/filelist.txt.gz    # ruta de metadata en el servidor
 ```
 
 ---
@@ -57,6 +58,26 @@ python3 sync.py
 | **2** | Descarga metadatos al entorno local | `python3 sync.py --phase 2` |  
 | **3** | Compara archivos locales y remotos | `python3 sync.py --phase 3` |  
 | **4** | Descarga archivos nuevos/modificados | `python3 sync.py --phase 4` |  
+
+## Recomendaciones de seguridad
+
+El archivo de metadatados se crea por defecto en /tmp/filelist.txt.gz
+
+Esto se puede cambiar en la variable REMOTE_METADATA_PATH del archivo .env 
+
+Al descargar el archivo de metadatos este se borra automáticamente del servidor. Así que el riesgo de obtención de información por parte de un elemento externo es mínimo, ya que normalmente se efectuará el ciclo completo de las 4 fases muy rápidamente.
+
+No obstante, si se quiere implementar una mejor medida de seguridad, se aconseja configurar el archivo de metadatos en una carpeta privada:
+
+``` bash
+chmod 700 /ruta/privada 
+```
+
+y en .env:
+```
+REMOTE_METADATA_PATH=/ruta/privada/filelist.txt.gz 
+```
+
 
 ---
 

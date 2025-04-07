@@ -57,33 +57,46 @@ class SecureSFTP:
                 f_out.write(f_in.read())
         os.remove(src)
 
-def generar_metadata_remota():
-    """Fase 1: Generar listado en servidor"""
-    print("\n[FASE 1] Generando metadata remota...")
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(
-        os.getenv('SSH_HOST'),
-        username=os.getenv('SSH_USER'),
-        password=os.getenv('SSH_PASS')
-    )
+def generar_metadata_remota():  
+    """Fase 1: Generar metadata en ruta configurable"""  
+    print("\n[FASE 1] Generando metadata remota...")  
+    ssh = paramiko.SSHClient()  
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())  
+    ssh.connect(  
+        os.getenv('SSH_HOST'),  
+        username=os.getenv('SSH_USER'),  
+        password=os.getenv('SSH_PASS')  
+    )  
     
-    comando = f"find {os.getenv('REMOTE_DIR')} -type f -printf '%s %TY-%Tm-%Td %TH:%TM:%.2TS %p\n' | gzip -c > /tmp/filelist.txt.gz"
-    ssh.exec_command(comando)
-    ssh.close()
-    print("✓ Listado generado en servidor")
+    # Usar variable de entorno para la ruta  
+    metadata_path = os.getenv('REMOTE_METADATA_PATH', '/tmp/filelist.txt.gz')  
+    dir_path = os.path.dirname(metadata_path)  
+    
+    # Comando seguro: crear directorio si no existe y generar metadata  
+    comando = f"mkdir -p {dir_path} && find {os.getenv('REMOTE_DIR')} -type f -printf '%s %TY-%Tm-%Td %TH:%TM:%.2TS %p\n' | gzip -c > {metadata_path}"  
+    
+    ssh.exec_command(comando)  
+    ssh.close()  
+    print(f"✓ Listado generado en {metadata_path}")  
 
-def descargar_metadata():
-    """Fase 2: Descargar metadata comprimida"""
-    print("\n[FASE 2] Descargando metadata...")
-    with SecureSFTP() as sftp:
-        sftp.descargar_archivo('/tmp/filelist.txt.gz', 'filelist.txt.gz')
+
+def descargar_metadata():  
+    """Fase 2: Descargar metadata desde ruta configurable"""  
+    print("\n[FASE 2] Descargando metadata...")  
+    metadata_path = os.getenv('REMOTE_METADATA_PATH', '/tmp/filelist.txt.gz')  
     
-    with gzip.open('filelist.txt.gz', 'rb') as f:
-        with open('filelist.txt', 'wb') as out:
-            out.write(f.read())
-    os.remove('filelist.txt.gz')
-    print("✓ Metadata descargada y descomprimida")
+    with SecureSFTP() as sftp:  
+        sftp.descargar_archivo(metadata_path, 'filelist.txt.gz')  
+    
+    with gzip.open('filelist.txt.gz', 'rb') as f:  
+        with open('filelist.txt', 'wb') as out:  
+            out.write(f.read())  
+    os.remove('filelist.txt.gz')  
+    print(f"✓ Metadata descargada desde {metadata_path}")
+
+    # Opcional: Al final de descargar_metadata  
+    with SecureSFTP() as sftp:  
+        sftp.remove(metadata_path)
 
 def comparar_archivos():
     """Fase 3: Comparar archivos locales/remotos"""
