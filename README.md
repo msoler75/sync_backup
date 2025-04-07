@@ -1,17 +1,26 @@
-## Manual de Instrucciones Mejorado: Herramienta de Backup Sincronizado  
+# SYNC BACKUP
 
-**Herramienta de Backup Sincronizado**  
-Este script realiza una sincronización bidireccional de archivos entre un servidor remoto (vía SFTP) y un directorio local, optimizando la detección de cambios y la transferencia mediante compresión selectiva. Ideal para mantener copias de seguridad eficientes y actualizadas.  
+## Herramienta de Backup Sincronizado
+
+Este script permite hacer un backup de carpetas y archivos de un servidor a la máquina local. 
+
+Lo hace optimizando la detección de cambios y la transferencia mediante compresión selectiva. Ideal para mantener copias de seguridad eficientes y actualizadas.  
+
+## Motivo de su creación
+
+Necesitaba hacer una copia periódica de una estructura de carpetas gigante, y lo hacía a través de FTP con Filezilla. El tiempo de comparación (listar) de directorios y archivos era enorme, así que me vi obligado a diseñar una forma más eficiente. 
+
+Ahora con este script se detecta muy rápidamente qué archivos son nuevos o han cambiado y los descarga automáticamente.
 
 ---
-
+<!--  -->
 ### **Instalación y Configuración**  
 
 **Requisitos del Sistema**  
 - **Python 3.8+**  
 - **Dependencias**:  
   ```bash  
-  pip install python-dotenv paramiko gzip 
+  pip install python-dotenv paramiko 
   ```
 
 ### **Archivo de Configuración (.env)**  
