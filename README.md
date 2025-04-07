@@ -16,6 +16,10 @@ Ahora con este script se detecta muy rápidamente qué archivos son nuevos o han
 <!--  -->
 ### **Instalación y Configuración**  
 
+**Requisitos del servidor**
+
+- Disponer de acceso a terminal SSH.
+
 **Requisitos del Sistema**  
 - **Python 3.8+**  
 - **Dependencias**:  
