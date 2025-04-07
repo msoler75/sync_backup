@@ -39,6 +39,7 @@ REMOTE_DIR=/ruta/remota/      # Directorio remoto a sincronizar
 # Configuración avanzada SFTP  
 SFTP_PORT=22                  # Puerto SFTP (predeterminado: 22)  
 REMOTE_METADATA_PATH=/tmp/filelist.txt.gz    # ruta de metadata en el servidor
+IGNORE_PATHS=node_modules|.env    # rutas relativas a ignorar
 ```
 
 ---

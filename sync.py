@@ -125,14 +125,26 @@ def comparar_archivos():
     print("\n[FASE 3] Comparando archivos...")
     server_files = {}
     remote_dir = os.getenv('REMOTE_DIR').rstrip('/')  # Normalizar REMOTE_DIR
+     # Normalizar rutas a ignorar (evitar barras inconsistentes)
+    ignore_paths = [
+        os.path.normpath(p.strip()) 
+        for p in os.getenv('IGNORE_PATHS', '').split('|')
+    ]
     
-    with open('filelist.txt') as f:
+    with open('filelist.txt', encoding='utf-8') as f:
         for line in f:
             parts = line.strip().split(' ', 3)
             if len(parts) == 4:
                 size, date_str, time_str, path = parts
-                # Obtener ruta relativa respecto a REMOTE_DIR
-                relative_path = path[len(remote_dir):].lstrip('/')
+                relative_path = os.path.normpath(path[len(remote_dir):].lstrip('/'))
+                
+                # Verificar si la ruta comienza con algún patrón ignorado
+                if any(
+                    os.path.commonpath([relative_path, ignored]) == ignored
+                    for ignored in ignore_paths
+                ):
+                    continue
+
                 server_files[relative_path] = {
                     'size': int(size),
                     'modified': datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
@@ -170,9 +182,14 @@ def descargar_archivos(cambios):
     with SecureSFTP() as sftp:
         for cambio in cambios:
             relative_path = cambio['path']
-            remote_path = f"{remote_dir}/{relative_path}"  # Ruta absoluta remota
-            local_path = os.path.join(os.getenv('LOCAL_DIR'), relative_path)
+            # Convertir ruta local a formato UNIX para SFTP
+            remote_path = f"{remote_dir}/{relative_path.replace(os.sep, '/')}"  # ← Conversión clave
+            # Normalizar ruta local (convertir a barras adecuadas para el sistema)
+            local_path = os.path.normpath(
+                os.path.join(os.getenv('LOCAL_DIR'), relative_path)
+            )
             
+            # Crear directorios necesarios
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             
             print(f"Descargando {relative_path}...")
@@ -203,7 +220,6 @@ def main():
         imprimir_cambios(cambios)
     elif args.phase == 4:
         cambios = comparar_archivos()
-        imprimir_cambios(cambios)
         if cambios:
             descargar_archivos(cambios)
     else:
