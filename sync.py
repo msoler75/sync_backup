@@ -34,14 +34,26 @@ class SecureSFTP:
         if self.ssh:
             self.ssh.close()
 
-    def descargar_archivo(self, remote_path, local_path):
-        """Descarga y descomprime archivos de texto"""
+    def descargar_archivo_gzipped(self, remote_path, local_path):
+        """Descarga y descomprime archivos compimidos .gz"""
         if self._es_archivo_texto(remote_path):
             temp_path = f"{local_path}.gz"
             self.sftp.get(remote_path, temp_path)
             self._descomprimir_archivo(temp_path, local_path)
         else:
             self.sftp.get(remote_path, local_path)
+
+    def descargar_archivo(self, remote_path, local_path):
+        """Descarga directa sin compresión"""
+        self.sftp.get(remote_path, local_path)
+
+    # Modificar en la clase SecureSFTP
+    def eliminar_archivo_remoto(self, remote_path):
+        """Elimina un archivo en el servidor remoto"""
+        if self.sftp:
+            self.sftp.remove(remote_path)  # Acceder al método del SFTPClient
+        else:
+            raise Exception("Conexión SFTP no establecida")
 
     def _es_archivo_texto(self, filename):
         """Detecta si el archivo es texto según extensión"""
@@ -86,7 +98,7 @@ def descargar_metadata():
     metadata_path = os.getenv('REMOTE_METADATA_PATH', '/tmp/filelist.txt.gz')  
     
     with SecureSFTP() as sftp:  
-        sftp.descargar_archivo(metadata_path, 'filelist.txt.gz')  
+        sftp.descargar_archivo_gzipped(metadata_path, 'filelist.txt.gz')  
     
     with gzip.open('filelist.txt.gz', 'rb') as f:  
         with open('filelist.txt', 'wb') as out:  
@@ -95,8 +107,9 @@ def descargar_metadata():
     print(f"✓ Metadata descargada desde {metadata_path}")
 
     # Opcional: Al final de descargar_metadata  
-    with SecureSFTP() as sftp:  
-        sftp.remove(metadata_path)
+    # with SecureSFTP() as sftp:
+      #  sftp.eliminar_archivo_remoto(metadata_path) 
+    # print(f"✓ Metadata eliminada del servidor")
 
 def comparar_archivos():
     """Fase 3: Comparar archivos locales/remotos"""
@@ -110,7 +123,7 @@ def comparar_archivos():
                 size, date_str, time_str, path = parts
                 server_files[path] = {
                     'size': int(size),
-                    'modified': datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S.%f")
+                    'modified': datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
                 }
     
     cambios = []
@@ -133,17 +146,22 @@ def comparar_archivos():
     return cambios
 
 def descargar_archivos(archivos):
-    """Fase 4: Descargar actualizaciones"""
+    """Fase 4: Descarga simple sin compresión"""
     print("\n[FASE 4] Descargando cambios...")
     with SecureSFTP() as sftp:
         for archivo in archivos:
-            local_path = os.path.join(os.getenv('LOCAL_DIR'), archivo)
+            remote_path = archivo  # Ruta absoluta del servidor
+            local_path = os.path.join(os.getenv('LOCAL_DIR'), archivo.lstrip('/'))
+            
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             
-            remote_path = f"{os.getenv('REMOTE_DIR')}/{archivo}"
-            print(f"Descargando {archivo}...")
-            sftp.descargar_archivo(remote_path, local_path)
-            print(f"✓ {archivo} {'(comprimido)' if sftp._es_archivo_texto(archivo) else ''}")
+            print(f"Descargando {remote_path}...")
+            try:
+                sftp.descargar_archivo(remote_path, local_path)
+                print(f"✓ {archivo} descargado")
+            except Exception as e:
+                print(f"✗ Error: {str(e)}")
+
 
 def main():
     parser = argparse.ArgumentParser()
