@@ -1,5 +1,0 @@
-5 2025-04-07 04:33:33 /home/dh_xjtdnz/test/archivo1.txt
-2 2025-04-07 04:33:39 /home/dh_xjtdnz/test/1.png
-5 2025-04-07 04:33:57 /home/dh_xjtdnz/test/folder/archivo2.txt
-4 2025-04-07 07:46:08 /home/dh_xjtdnz/test/archivo3.txt
-4 2025-04-07 07:46:26 /home/dh_xjtdnz/test/folder2/2.png
