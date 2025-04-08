@@ -1,6 +1,7 @@
 import os
 import paramiko
 import gzip
+import unicodedata
 from datetime import datetime
 from dotenv import load_dotenv
 import argparse
@@ -174,37 +175,41 @@ def comparar_archivos():
     return cambios
 
 
+def normalizar_ruta_remota(original_path):
+    """Aplica normalización NFC a nombres de archivo"""
+    dir_path, filename = os.path.split(original_path)
+    return os.path.join(dir_path, unicodedata.normalize('NFC', filename))
+
+def sanitizar_nombre_windows(nombre):
+    """Sanitiza solo el nombre del archivo, no la estructura de directorios"""
+    caracteres_prohibidos = r'<>:"/\|?*'  # Caracteres prohibidos en nombres de archivo
+    return ''.join('_' if char in caracteres_prohibidos else char for char in nombre)
+
 def descargar_archivos(cambios):
-    """Fase 4: Descarga archivos nuevos o modificados"""
     print("\n[FASE 4] Descargando cambios...")
-    remote_dir = os.getenv('REMOTE_DIR').rstrip('/')  # Normalizar REMOTE_DIR
+    remote_dir = os.getenv('REMOTE_DIR').rstrip('/')
     
     with SecureSFTP() as sftp:
         for cambio in cambios:
-            relative_path = cambio['path']
-            # Convertir ruta local a formato UNIX para SFTP
-            remote_path = f"{remote_dir}/{relative_path.replace(os.sep, '/')}"  # ← Conversión clave
-            # Normalizar ruta local (convertir a barras adecuadas para el sistema)
-            local_path = os.path.normpath(
-                os.path.join(os.getenv('LOCAL_DIR'), relative_path)
+            # 1. Normalización NFC para ruta remota
+            remote_path = f"{remote_dir}/{cambio['path'].replace(os.sep, '/')}"
+            remote_path = unicodedata.normalize('NFC', remote_path)
+            
+            # 2. Ruta local con estructura de directorios preservada
+            local_path = os.path.join(
+                os.getenv('LOCAL_DIR'), 
+                *[sanitizar_nombre_windows(part) for part in cambio['path'].split(os.sep)]
             )
             
-            # Crear directorios necesarios
+            # 3. Crear directorios padres (preservando estructura)
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             
-            print(f"Descargando {relative_path}...")
+            print(f"Descargando {cambio['path']}...")
             try:
                 sftp.descargar_archivo(remote_path, local_path)
-                
-                # Aplicar fecha/hora desde metadata
-                mod_time = cambio['remote_modified'].timestamp()
-                os.utime(local_path, (mod_time, mod_time))
-                
-                print(f"✓ {relative_path} [Fecha: {cambio['remote_modified'].strftime('%Y-%m-%d %H:%M:%S')}]")
+                print(f"✓ {local_path} [OK]")
             except Exception as e:
                 print(f"✗ Error: {str(e)}")
-
-
 
 def main():
     parser = argparse.ArgumentParser()
